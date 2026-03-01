@@ -1,0 +1,32 @@
+{
+  "name": "cryptocurrency_wallet_tracking_sys",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "seed": "node src/db/seed.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rajkoli145/Cryptocurrency_wallet_tracking_sys.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Rajkoli145/Cryptocurrency_wallet_tracking_sys/issues"
+  },
+  "homepage": "https://github.com/Rajkoli145/Cryptocurrency_wallet_tracking_sys#readme",
+  "dependencies": {
+    "apollo-server-express": "^3.13.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "graphql": "^16.13.0",
+    "neo4j-driver": "^6.0.1",
+    "uuid": "^13.0.0"
+  }
+}
