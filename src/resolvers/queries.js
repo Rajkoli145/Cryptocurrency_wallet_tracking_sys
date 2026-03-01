@@ -1,9 +1,13 @@
-// Query resolvers — these handle all "read" operations
+// This file has all the query resolvers
+// Queries are used to READ or FETCH data from the database
+// They don't change anything, they just get the data and return it
+
 const driver = require("../db/neo4j");
 
 const queries = {
-    // Fetch a single user by ID
-    // Example: query { user(id: "abc") { name email } }
+    // Get a user by their ID
+    // We search for a User node in Neo4j that matches the given ID
+    // If we find it, we return the user's details, otherwise we return null
     user: async (_, args) => {
         const session = driver.session();
         try {
@@ -18,8 +22,9 @@ const queries = {
         }
     },
 
-    // Fetch a wallet by its address
-    // Example: query { wallet(address: "0xabc123") { balance cryptoType } }
+    // Get a wallet by its address
+    // Every wallet has a unique address like "0xabc123"
+    // We find the wallet in Neo4j and return its details like balance and crypto type
     wallet: async (_, args) => {
         const session = driver.session();
         try {
@@ -34,8 +39,9 @@ const queries = {
         }
     },
 
-    // Fetch all wallets belonging to a user
-    // Example: query { wallets(userId: "abc") { address balance } }
+    // Get all wallets that belong to a specific user
+    // We follow the OWNS_WALLET relationship from User to Wallet
+    // This returns a list of all wallets the user has
     wallets: async (_, args) => {
         const session = driver.session();
         try {
@@ -49,8 +55,9 @@ const queries = {
         }
     },
 
-    // Fetch a portfolio by ID
-    // Example: query { portfolio(id: "xyz") { name holdings { cryptoType } } }
+    // Get a portfolio by its ID
+    // A portfolio is like a collection where you track your crypto investments
+    // We find it in Neo4j and return its details
     portfolio: async (_, args) => {
         const session = driver.session();
         try {
@@ -65,8 +72,9 @@ const queries = {
         }
     },
 
-    // Fetch all alerts for a user
-    // Example: query { alerts(userId: "abc") { cryptoType targetPrice triggered } }
+    // Get all price alerts set by a user
+    // We follow the HAS_ALERT relationship from User to Alert
+    // Each alert watches a crypto price and tells if it went above or below a target
     alerts: async (_, args) => {
         const session = driver.session();
         try {

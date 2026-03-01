@@ -1,9 +1,14 @@
-// Mutation resolvers — these handle all "write" operations (create, update, delete)
+// This file has all the mutation resolvers
+// Mutations are used to CREATE or UPDATE data in the database
+// Unlike queries which just read data, mutations actually change things
+
 const driver = require("../db/neo4j");
 const { v4: uuidv4 } = require("uuid");
 
 const mutations = {
-    // Create a new user
+    // Create a new user in the database
+    // We generate a unique ID using uuid, then create a User node in Neo4j
+    // The user has a name, email, and a kycVerified flag (defaults to false)
     createUser: async (_, { input }) => {
         const session = driver.session();
         try {
@@ -28,7 +33,9 @@ const mutations = {
         }
     },
 
-    // Create a new wallet and link it to a user
+    // Create a new wallet and connect it to a user
+    // First we find the user, then create the wallet with balance starting at 0
+    // Then we create an OWNS_WALLET relationship between the user and wallet
     createWallet: async (_, { input }) => {
         const session = driver.session();
         try {
@@ -56,12 +63,16 @@ const mutations = {
         }
     },
 
-    // Create a transaction and update the wallet balance
+    // Create a new transaction and update the wallet balance automatically
+    // If someone receives crypto, the balance goes up
+    // If someone sends crypto, the balance goes down
+    // We also link the transaction to the wallet using HAS_TX relationship
     createTransaction: async (_, { input }) => {
         const session = driver.session();
         try {
             const id = uuidv4();
-            // Determine how balance changes: +amount for RECEIVE, -amount for SEND
+
+            // If it's a RECEIVE, we add the amount. If it's a SEND, we subtract it
             const balanceChange =
                 input.type === "RECEIVE" ? input.amount : -input.amount;
 
@@ -94,7 +105,9 @@ const mutations = {
         }
     },
 
-    // Create a portfolio and link it to a user
+    // Create a new portfolio and link it to a user
+    // A portfolio is like a folder where you keep track of your crypto investments
+    // We connect it to the user using HAS_PORTFOLIO relationship
     createPortfolio: async (_, { input }) => {
         const session = driver.session();
         try {
@@ -120,11 +133,14 @@ const mutations = {
         }
     },
 
-    // Add a holding to a portfolio (or update if same cryptoType exists)
+    // Add a crypto holding to a portfolio
+    // If the same crypto already exists in the portfolio, we update it
+    // instead of creating a duplicate - we recalculate the average buy price
+    // If it's a new crypto, we just create a fresh holding
     addHolding: async (_, { input }) => {
         const session = driver.session();
         try {
-            // Check if a holding for this cryptoType already exists
+            // First check if this crypto already exists in the portfolio
             const existing = await session.run(
                 `MATCH (p:Portfolio {id: $portfolioId})-[:HOLDS]->(h:PortfolioHolding {cryptoType: $cryptoType})
          RETURN h`,
@@ -132,7 +148,8 @@ const mutations = {
             );
 
             if (existing.records.length > 0) {
-                // Update existing holding — recalculate average buy price
+                // This crypto already exists, so we update the quantity
+                // and recalculate the average buy price using weighted average formula
                 const result = await session.run(
                     `MATCH (p:Portfolio {id: $portfolioId})-[:HOLDS]->(h:PortfolioHolding {cryptoType: $cryptoType})
            SET h.averageBuyPrice = ((h.averageBuyPrice * h.quantity) + ($averageBuyPrice * $quantity)) / (h.quantity + $quantity),
@@ -147,7 +164,8 @@ const mutations = {
                 );
                 return result.records[0].get("h").properties;
             } else {
-                // Create new holding
+                // This is a new crypto, so we create a fresh holding
+                // and connect it to the portfolio using HOLDS relationship
                 const id = uuidv4();
                 const result = await session.run(
                     `MATCH (p:Portfolio {id: $portfolioId})
@@ -175,6 +193,9 @@ const mutations = {
     },
 
     // Create a price alert for a user
+    // The alert watches a specific crypto and triggers when the price
+    // goes above or below the target price
+    // It starts as triggered: false and gets set to true when the condition is met
     createAlert: async (_, { input }) => {
         const session = driver.session();
         try {
@@ -204,11 +225,15 @@ const mutations = {
         }
     },
 
-    // Check all untriggered alerts for a crypto — trigger if condition is met
+    // Check all alerts for a specific crypto and trigger the ones where
+    // the condition is met based on the current price
+    // For example, if someone set an alert for Bitcoin ABOVE 50000
+    // and the current price is 55000, the alert gets triggered
     checkAlerts: async (_, { cryptoType, currentPrice }) => {
         const session = driver.session();
         try {
-            // Find alerts where condition is met and trigger them
+            // Find all untriggered alerts for this crypto where the condition matches
+            // Then set triggered to true for those alerts
             const result = await session.run(
                 `MATCH (a:Alert {cryptoType: $cryptoType, triggered: false})
          WHERE (a.condition = "ABOVE" AND $currentPrice >= a.targetPrice)

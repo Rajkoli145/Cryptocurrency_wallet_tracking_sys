@@ -1,23 +1,25 @@
-// Barrel file — combines queries, mutations, and field resolvers
+// This file brings everything together
+// It combines the query resolvers, mutation resolvers, and field resolvers
+// into one single object that Apollo Server uses
+
 const driver = require("../db/neo4j");
 const queries = require("./queries");
 const mutations = require("./mutations");
 
 const resolvers = {
-    // Root Query — maps to type Query in typeDefs
+    // These are the main query and mutation resolvers from the other files
     Query: queries,
-
-    // Root Mutation — maps to type Mutation in typeDefs
     Mutation: mutations,
 
-    // --- Field Resolvers ---
-    // These run when someone queries a NESTED field.
-    // For example: query { wallet(address: "0x...") { transactions { ... } } }
-    // GraphQL first calls the `wallet` query resolver, gets the wallet object,
-    // then calls Wallet.transactions with that wallet as `parent`.
+    // Below are "field resolvers" - they handle nested data
+    // For example, when you query a wallet and also ask for its transactions,
+    // GraphQL first gets the wallet, then uses these resolvers
+    // to fetch the related transactions, user, etc.
 
     Wallet: {
-        // When someone queries wallet { transactions { ... } }
+        // Get all transactions that belong to this wallet
+        // We follow the HAS_TX relationship from wallet to its transactions
+        // and sort them by newest first
         transactions: async (parent) => {
             const session = driver.session();
             try {
@@ -31,7 +33,8 @@ const resolvers = {
             }
         },
 
-        // When someone queries wallet { user { ... } }
+        // Get the user who owns this wallet
+        // We go backwards through the OWNS_WALLET relationship to find the user
         user: async (parent) => {
             const session = driver.session();
             try {
@@ -48,7 +51,8 @@ const resolvers = {
     },
 
     Portfolio: {
-        // When someone queries portfolio { holdings { ... } }
+        // Get all the crypto holdings inside this portfolio
+        // We follow the HOLDS relationship from portfolio to its holdings
         holdings: async (parent) => {
             const session = driver.session();
             try {
@@ -62,7 +66,9 @@ const resolvers = {
             }
         },
 
-        // Computed field — totalValue = sum of (quantity × averageBuyPrice) for all holdings
+        // Calculate the total value of the portfolio
+        // This is not stored in the database - we calculate it on the fly
+        // by adding up (quantity * averageBuyPrice) for each holding
         totalValue: async (parent) => {
             const session = driver.session();
             try {
@@ -73,6 +79,8 @@ const resolvers = {
                 );
                 if (result.records.length === 0) return 0.0;
                 const total = result.records[0].get("total");
+                // Neo4j sometimes returns integers as special objects
+                // so we need to convert them to regular JavaScript numbers
                 if (total === null || total === undefined) return 0.0;
                 if (typeof total === "number") return total;
                 if (typeof total.toNumber === "function") return total.toNumber();
@@ -82,7 +90,7 @@ const resolvers = {
             }
         },
 
-        // When someone queries portfolio { user { ... } }
+        // Get the user who owns this portfolio
         user: async (parent) => {
             const session = driver.session();
             try {
@@ -99,7 +107,8 @@ const resolvers = {
     },
 
     User: {
-        // When someone queries user { wallets { ... } }
+        // Get all wallets that this user owns
+        // We follow the OWNS_WALLET relationship from user to wallets
         wallets: async (parent) => {
             const session = driver.session();
             try {
@@ -115,7 +124,7 @@ const resolvers = {
     },
 
     Alert: {
-        // When someone queries alert { user { ... } }
+        // Get the user who created this alert
         user: async (parent) => {
             const session = driver.session();
             try {
